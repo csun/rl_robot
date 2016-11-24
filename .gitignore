@@ -1,0 +1,4 @@
+*.pyc
+venv/
+pybrain/
+v-rep/
