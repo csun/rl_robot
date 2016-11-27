@@ -42,12 +42,13 @@ class Environment(PybrainEnvironment):
         pass
 
     def reset(self):
+        # TODO generate random positions in environment for robot and goal
         # TODO store joint positions to start
         # TODO get collision handles, joint handles, etc.
         # TODO start streaming for all collision
         # TODO start streaming for all proximity sensors
 
-        return_code = vrep.simxLoadScene(self._client_id, scene_file)
+        return_code = vrep.simxLoadScene(self._client_id, self._scene_file, 0, vrep.simx_opmode_blocking)
         if return_code != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
 

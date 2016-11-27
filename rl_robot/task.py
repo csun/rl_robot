@@ -2,7 +2,6 @@ from pybrain.rl.environments.task import Task as PybrainTask
 
 
 class Task(PybrainTask):
-    # TODO generate random positions in environment for robot and goal
     COLLISION_REWARD = -1000
 
     def getReward(self):
