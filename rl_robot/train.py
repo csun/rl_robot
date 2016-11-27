@@ -9,7 +9,7 @@ from task import Task
 
 def main():
     # TODO Connect environment to v-rep server
-    environment = Environment(...)
+    environment = Environment()
     task = Task(environment)
     # TODO figure out how to initialize this
     cotroller = ActionValueNetwork(...)
@@ -18,12 +18,13 @@ def main():
     experiment = Experiment(task, agent)
 
     # TODO Define better end condition for training loop
-    while True:
+
+    # while True:
         # TODO figure out how many steps of interaction to do
-        experiment.doInteractions(...)
-        agent.learn()
-        agent.reset()
-        environment.reset()
+        # experiment.doInteractions(...)
+        # agent.learn()
+        # agent.reset()
+        # environment.reset()
         # TODO use pickle to save model evey N iterations
 
 
