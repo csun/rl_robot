@@ -19,22 +19,22 @@ class Environment(PybrainEnvironment):
         if self._client_id == -1:
             raise ConnectionException('Could not connect')
 
-        # TODO get collision handles, joint handles, etc.
-
         self.reset()
 
     def isColliding(self):
-        # TODO
         pass
 
     def getSensors(self):
-        # TODO Collect values from v-rep and turn into some sort of state object
-        # to be returned
+        # TODO Update joint positions? Should probably print something if these
+        # differ at all from the last action desired joint positions as if
+        # they don't we can just query once at the start and trust those
+        # TODO Convert proximity sensor data into distance and normal
+        # TODO Make sure that data returned from this is the same as used for
+        # calculating getReward at each step
         pass
 
     def performAction(self, action):
         # TODO Use the action object to affect change in the v-rep sim
-        # TODO store joint positions to start
         # pause communication
         # Increment joint positions by action
         # Send all new joint positions
@@ -42,6 +42,11 @@ class Environment(PybrainEnvironment):
         pass
 
     def reset(self):
+        # TODO store joint positions to start
+        # TODO get collision handles, joint handles, etc.
+        # TODO start streaming for all collision
+        # TODO start streaming for all proximity sensors
+
         return_code = vrep.simxLoadScene(self._client_id, scene_file)
         if return_code != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
