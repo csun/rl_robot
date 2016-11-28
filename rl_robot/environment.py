@@ -1,5 +1,7 @@
-import vrep
+import math
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
+import random
+import vrep
 
 from joint_constants import *
 
@@ -22,19 +24,6 @@ class Environment(PybrainEnvironment):
 
         self.reset()
 
-        # load all object handles
-        self._object_handles = self._load_object_handles()
-        print self._object_handles
-
-        # print 'Joint positions..'
-        for joint in JOINTS:
-            object_handle = self._object_handles[joint]
-            print vrep.simxGetJointPosition(self._client_id, object_handle, vrep.simx_opmode_blocking)
-
-        for joint in JOINTS:
-            object_handle = self._object_handles[joint]
-            print vrep.simxSetJointPosition(self._client_id, object_handle, 1.5, vrep.simx_opmode_blocking)
-
     def isColliding(self):
         pass
 
@@ -56,20 +45,62 @@ class Environment(PybrainEnvironment):
         pass
 
     def reset(self):
-        # TODO generate random positions in environment for robot and goal - store all in env
-        # TODO store joint positions to start
-        # TODO get collision handles, joint handles, etc.
-        # TODO start streaming for all collision
+        # get collision handles, joint handles, etc.
+        self._scene_handles = self._load_scene_handles()
+
+        # start streaming for all collision
+        for collision in COLLISION_OBJECTS:
+            collision_handle = self._scene_handles[collision]
+            # TODO start streaming
+
         # TODO start streaming for all proximity sensors
+
+        # generate random positions in environment for robot and goal - store all in env
+        self._joint_positions = self._generate_joint_positions()
+
+        print 'Generated the following {} positions for each of the robot\'s joints: {}'\
+            .format(len(self._joint_positions), self._joint_positions)
+
+        # apply joint positions
+        self._apply_all_joint_positions(zip(JOINTS, self._joint_positions))
 
         return_code = vrep.simxLoadScene(self._client_id, self._scene_file, 0, vrep.simx_opmode_blocking)
         if return_code != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
 
-    def _load_object_handles(self):
+    # Scene Configuration Helper Functions ----------------------------------------------------------------
+    def _load_scene_handles(self):
+        failed_handles = []
+
+        # load all objects
         object_handles = {}
         for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS:
             code, handle = vrep.simxGetObjectHandle(self._client_id, obj_name, vrep.simx_opmode_blocking)
             if code == vrep.simx_return_ok:
                 object_handles[obj_name] = handle
+            else:
+                failed_handles.append(obj_name)
+
+        # load collisions -- use the same map as for objects
+        for coll_name in COLLISION_OBJECTS:
+            code, handle = vrep.simxGetCollisionHandle(self._client_id, coll_name, vrep.simx_opmode_blocking)
+            if code == vrep.simx_return_ok:
+                object_handles[coll_name] = handle
+            else:
+                failed_handles.append(coll_name)
+
+        if len(failed_handles) > 0:
+            print 'Failed to obtain handles for the following objects: {}'.format(failed_handles)
+
         return object_handles
+
+    def _generate_joint_positions(self):
+        return [2 * math.pi * random.random() for _ in JOINTS]
+
+    def _apply_all_joint_positions(self, positions_to_apply):
+        for joint, position in positions_to_apply:
+            object_handle = self._scene_handles[joint]
+            code = vrep.simxSetJointPosition(self._client_id, object_handle, position, vrep.simx_opmode_blocking)
+            if code != vrep.simx_return_ok:
+                raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
+                    .format(code, joint, object_handle, position)
