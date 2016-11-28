@@ -22,10 +22,14 @@ class Environment(PybrainEnvironment):
         if self._client_id == -1:
             raise ConnectionException('Could not connect')
 
+        # set joint angles and start streaming
         self.reset()
 
     def isColliding(self):
-        pass
+        for collision in self._read_all_collisions():
+            # check if a collision occurs
+            return
+        return False
 
     def getSensors(self):
         # TODO Update joint positions? Should probably print something if these
@@ -36,13 +40,18 @@ class Environment(PybrainEnvironment):
         # calculating getReward at each step
         pass
 
-    def performAction(self, action):
-        # TODO Use the action object to affect change in the v-rep sim
+    def performAction(self, deltas):
+        # just pass in a list of joint angle changes that matches the order in state (see: self._joint_positions)
+        if len(deltas) != len(JOINTS):
+            raise SimulatorException('Given deltas object length [{}] does not match num joints [{}]').format(len(deltas), len(JOINTS))
+
         # pause communication
-        # Increment joint positions by action
-        # Send all new joint positions
+
+        # Increment joint positions by action and apply to the robot
+        self._joint_positions = [jp + djp for jp, djp in zip(self._joint_positions, deltas)]
+        self._apply_all_joint_positions(self._joint_positions)
+
         # unpause
-        pass
 
     def reset(self):
         # first load up the original scene
@@ -108,3 +117,11 @@ class Environment(PybrainEnvironment):
             if code != vrep.simx_return_ok:
                 raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
                     .format(code, joint, object_handle, position)
+
+    # both these functions assume that streaming has been started and will fail if not
+    def _read_all_sensors(self):
+        pass
+
+
+    def _read_all_collisions(self):
+        pass
