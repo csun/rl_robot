@@ -1,6 +1,7 @@
 import math
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 import random
+import time
 import vrep
 
 from joint_constants import *
@@ -24,6 +25,8 @@ class Environment(PybrainEnvironment):
 
         # set joint angles and start streaming
         self.reset()
+        time.sleep(2)
+        self.getSensors()
 
     def isColliding(self):
         for collision in self._read_all_collisions():
@@ -38,7 +41,28 @@ class Environment(PybrainEnvironment):
         # TODO Convert proximity sensor data into distance and normal
         # TODO Make sure that data returned from this is the same as used for
         # calculating getReward at each step
-        pass
+        streamed_sensor_data = []
+        for i in range(5):
+            for sensor in PROXIMITY_SENSORS:
+                sensor_handle = self._scene_handles[sensor]
+                code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
+                print code
+                if code != vrep.simx_return_ok:
+                    time.sleep(0.1)
+                    code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
+                    print 'Retried code {}'.format(code)
+                    # raise Exception('Fatal: streaming data not available for sensor {}'.format(sensor))
+                # create list of tuples of distance and normal for each sensor
+                # TODO use point to calculate distance
+                streamed_sensor_data.append((point, normal))
+
+        # update only if relevant; also, print; in either case, return the current state of the world
+        if self._sensor_data != streamed_sensor_data:
+            self._sensor_data = streamed_sensor_data
+            print 'Updated sensors {}'.format(self._sensor_data)
+
+        return self._sensor_data
+
 
     def performAction(self, deltas):
         # just pass in a list of joint angle changes that matches the order in state (see: self._joint_positions)
@@ -62,12 +86,18 @@ class Environment(PybrainEnvironment):
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
 
+        self._sensor_data = None
+
         # start streaming for all collision
         for collision in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision]
             # TODO start streaming
 
         # TODO start streaming for all proximity sensors
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)
+
 
         # generate random positions in environment for robot and goal - store all in env
         self._joint_positions = self._generate_joint_positions()
