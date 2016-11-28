@@ -46,12 +46,6 @@ class Environment(PybrainEnvironment):
             for sensor in PROXIMITY_SENSORS:
                 sensor_handle = self._scene_handles[sensor]
                 code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
-                print code
-                if code != vrep.simx_return_ok:
-                    time.sleep(0.1)
-                    code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
-                    print 'Retried code {}'.format(code)
-                    # raise Exception('Fatal: streaming data not available for sensor {}'.format(sensor))
                 # create list of tuples of distance and normal for each sensor
                 # TODO use point to calculate distance
                 streamed_sensor_data.append((point, normal))
@@ -78,6 +72,9 @@ class Environment(PybrainEnvironment):
         # unpause
 
     def reset(self):
+        vrep.simxStopSimulation(self._client_id, vrep.simx_opmode_blocking)
+        time.sleep(0.1)
+
         # first load up the original scene
         scene_did_load = vrep.simxLoadScene(self._client_id, self._scene_file, 0, vrep.simx_opmode_blocking)
         if scene_did_load != vrep.simx_return_ok:
@@ -88,6 +85,8 @@ class Environment(PybrainEnvironment):
 
         self._sensor_data = None
 
+        vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_oneshot_wait)
+
         # start streaming for all collision
         for collision in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision]
@@ -97,7 +96,6 @@ class Environment(PybrainEnvironment):
         for sensor in PROXIMITY_SENSORS:
             sensor_handle = self._scene_handles[sensor]
             code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)
-
 
         # generate random positions in environment for robot and goal - store all in env
         self._joint_positions = self._generate_joint_positions()
