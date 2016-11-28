@@ -8,7 +8,6 @@ PORT = 19997
 def main():
     # TODO create an environment object and start interfacing with it
     environment = Environment(LOCAL_HOST, PORT, PATH_TO_SCENE)
-    print 'completed'
 
 if __name__ == '__main__':
     main()

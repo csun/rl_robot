@@ -45,6 +45,11 @@ class Environment(PybrainEnvironment):
         pass
 
     def reset(self):
+        # first load up the original scene
+        scene_did_load = vrep.simxLoadScene(self._client_id, self._scene_file, 0, vrep.simx_opmode_blocking)
+        if scene_did_load != vrep.simx_return_ok:
+            raise SimulatorException('Could not load scene')
+
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
 
@@ -58,15 +63,11 @@ class Environment(PybrainEnvironment):
         # generate random positions in environment for robot and goal - store all in env
         self._joint_positions = self._generate_joint_positions()
 
-        print 'Generated the following {} positions for each of the robot\'s joints: {}'\
+        print 'Generated the following {} initial positions for each of the robot\'s joints:\n{}'\
             .format(len(self._joint_positions), self._joint_positions)
 
         # apply joint positions
         self._apply_all_joint_positions(zip(JOINTS, self._joint_positions))
-
-        return_code = vrep.simxLoadScene(self._client_id, self._scene_file, 0, vrep.simx_opmode_blocking)
-        if return_code != vrep.simx_return_ok:
-            raise SimulatorException('Could not load scene')
 
     # Scene Configuration Helper Functions ----------------------------------------------------------------
     def _load_scene_handles(self):
@@ -76,6 +77,7 @@ class Environment(PybrainEnvironment):
         object_handles = {}
         for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS:
             code, handle = vrep.simxGetObjectHandle(self._client_id, obj_name, vrep.simx_opmode_blocking)
+
             if code == vrep.simx_return_ok:
                 object_handles[obj_name] = handle
             else:
@@ -84,6 +86,7 @@ class Environment(PybrainEnvironment):
         # load collisions -- use the same map as for objects
         for coll_name in COLLISION_OBJECTS:
             code, handle = vrep.simxGetCollisionHandle(self._client_id, coll_name, vrep.simx_opmode_blocking)
+
             if code == vrep.simx_return_ok:
                 object_handles[coll_name] = handle
             else:
@@ -101,6 +104,7 @@ class Environment(PybrainEnvironment):
         for joint, position in positions_to_apply:
             object_handle = self._scene_handles[joint]
             code = vrep.simxSetJointPosition(self._client_id, object_handle, position, vrep.simx_opmode_blocking)
+
             if code != vrep.simx_return_ok:
                 raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
                     .format(code, joint, object_handle, position)
