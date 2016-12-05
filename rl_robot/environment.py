@@ -1,8 +1,10 @@
+import sys
 import math
-from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 import random
 import time
+
 import vrep
+from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
 from joint_constants import *
 
@@ -28,24 +30,22 @@ class Environment(PybrainEnvironment):
         self.reset()
 
     def isColliding(self):
-        for object_name, has_collision in self._read_all_collisions():
-            if has_collision:
-                print 'COLLISION! with object named [{}].'.format(object_name)
-                return True
-        return False
+        return self._is_colliding
 
     def distanceFromGoal(self):
-        # TODO
-        pass
+        return self._distance_from_goal
 
     def getSensors(self):
         # If we haven't moved since the last sensor reading, our old sensor readings are still correct.
         if self._current_sensor_step == self._current_action_step:
             return self._sensor_data_vector
 
+        self._check_for_collisions()
         self._get_goal_distance_data()
         self._get_proximity_sensor_distances()
         self._generate_sensor_data_vector()
+
+        self._current_sensor_step = self._current_action_step
 
         return self._sensor_data_vector
 
@@ -58,7 +58,11 @@ class Environment(PybrainEnvironment):
         # TODO figure out how to specify how many deltas Learner can provide to env and max / min delta value
         # TODO figure out how to set joint limits as well
         self._joint_positions = [jp + djp for jp, djp in zip(self._joint_positions, deltas)]
+        # TODO remove the self._joint_positions as an argument because it's redundant. We also need to decide
+        # what the actual format of _join_positions is because currently there's some dischord between how it's
+        # assigned here and the format that self._apply_all... assumes
         self._apply_all_joint_positions(self._joint_positions)
+        self._current_action_step += 1
 
     def reset(self):
         vrep.simxStopSimulation(self._client_id, vrep.simx_opmode_blocking)
@@ -74,26 +78,20 @@ class Environment(PybrainEnvironment):
 
         self._current_action_step = 0
         self._current_sensor_step = None
-        self._joint_positions = # TODO
-        self._end_effector_position = # TODO
-        self._goal_position = # TODO
-        self._proximity_sensor_distances = # TODO
+        self._joint_positions = [0] * len(JOINTS)
+        self._distance_from_goal = None
+        # TODO how do we represent this?
+        self._angle_to_goal = None
+        self._proximity_sensor_distances = [sys.maxint] * len(PROXIMITY_SENSORS)
+        self._is_colliding = False
         self._sensor_data_vector = None
 
+        self._generate_goal_position()
+
         vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_blocking)
-
-        # TODO move to helper
-        print 'Beginning to stream all collisions.'
-        # start streaming for all collision
-        for collision in COLLISION_OBJECTS:
-            collision_handle = self._scene_handles[collision]
-            # TODO make a helper for these calls that sends streaming only if never opened?
-            code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)
-
-        print 'Beginning to stream data for all proximity sensors.'
-        for sensor in PROXIMITY_SENSORS:
-            sensor_handle = self._scene_handles[sensor]
-            code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)
+        self._start_streaming()
+        # We want to get sensors once so that things like _distance_from_goal are properly initialized
+        self.getSensors()
 
     # Scene Configuration Helper Functions ----------------------------------------------------------------
     def _load_scene_handles(self):
@@ -123,12 +121,32 @@ class Environment(PybrainEnvironment):
 
         return object_handles
 
+    def _start_streaming(self):
+        print 'Beginning to stream all collisions.'
+        for collision in COLLISION_OBJECTS:
+            collision_handle = self._scene_handles[collision]
+            code = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)[0]
+            if code != vrep.simx_return_ok:
+                print 'Failed to start streaming for collision object {}'.format(collision)
+
+        print 'Beginning to stream data for all proximity sensors.'
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)[0]
+            if code != vrep.simx_return_ok:
+                print 'Failed to start streaming for proximity sensor {}'.format(sensor)
+
+
+    def _generate_goal_position(self):
+        # TODO remember to constrain this to places that make sense
+        pass
+
     def _get_goal_distance_data(self):
         # TODO
         pass
 
     def _get_proximity_sensor_distances(self):
-        # TODO
+        # TODO if no detection is occurring, just use sys.maxint
         pass
 
     def _generate_sensor_data_vector(self):
@@ -159,12 +177,17 @@ class Environment(PybrainEnvironment):
         return streamed_sensor_data
 
 
-    def _read_all_collisions(self):
-        collisions = []
+    def _check_for_collisions(self):
+        self._is_colliding = False
+
         for collision_object_name in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision_object_name]
             code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_buffer)
-        collisions.append((collision_object_name, state))
+
+            if code == vrep.simx_return_ok and state:
+                print 'COLLISION DETECTED WITH {}'.format(collision_object_name)
+                self._is_colliding = True
+                return
 
     # Helper function -------------------------------------------------------------------------------------
     def _distance_to_point(sensor_name, point):
