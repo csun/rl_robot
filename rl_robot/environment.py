@@ -6,6 +6,7 @@ import vrep
 
 from joint_constants import *
 
+
 class ConnectionException(Exception):
     pass
 
@@ -33,31 +34,31 @@ class Environment(PybrainEnvironment):
                 return True
         return False
 
+    def distanceFromGoal(self):
+        # TODO
+        pass
+
     def getSensors(self):
-        streamed_sensor_data = self._read_all_sensors()
+        # If we haven't moved since the last sensor reading, our old sensor readings are still correct.
+        if self._current_sensor_step == self._current_action_step:
+            return self._sensor_data_vector
 
-        # update only if relevant; also, print; in either case, return the current state of the world
-        if self._sensor_data != streamed_sensor_data:
-            self._sensor_data = streamed_sensor_data
-            print 'Sensor data has changed to the following: {}'.format(self._sensor_data)
+        self._get_goal_distance_data()
+        self._get_proximity_sensor_distances()
+        self._generate_sensor_data_vector()
 
-        # TODO, convert this into a big fat vector
-
-        return self._sensor_data
-
+        return self._sensor_data_vector
 
     def performAction(self, deltas):
         # just pass in a list of joint angle changes that matches the order in state (see: self._joint_positions)
         if len(deltas) != len(JOINTS):
             raise SimulatorException('Given deltas object length [{}] does not match num joints [{}]').format(len(deltas), len(JOINTS))
 
-        # pause communication
-
         # Increment joint positions by action and apply to the robot
+        # TODO figure out how to specify how many deltas Learner can provide to env and max / min delta value
+        # TODO figure out how to set joint limits as well
         self._joint_positions = [jp + djp for jp, djp in zip(self._joint_positions, deltas)]
         self._apply_all_joint_positions(self._joint_positions)
-
-        # unpause
 
     def reset(self):
         vrep.simxStopSimulation(self._client_id, vrep.simx_opmode_blocking)
@@ -71,28 +72,28 @@ class Environment(PybrainEnvironment):
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
 
-        self._sensor_data = None
+        self._current_action_step = 0
+        self._current_sensor_step = None
+        self._joint_positions = # TODO
+        self._end_effector_position = # TODO
+        self._goal_position = # TODO
+        self._proximity_sensor_distances = # TODO
+        self._sensor_data_vector = None
 
-        vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_oneshot_wait)
+        vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_blocking)
 
+        # TODO move to helper
         print 'Beginning to stream all collisions.'
         # start streaming for all collision
         for collision in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision]
+            # TODO make a helper for these calls that sends streaming only if never opened?
             code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)
 
         print 'Beginning to stream data for all proximity sensors.'
         for sensor in PROXIMITY_SENSORS:
             sensor_handle = self._scene_handles[sensor]
             code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)
-
-        # generate random positions in environment for robot and goal - store all in env
-        self._joint_positions = self._generate_joint_positions()
-
-        print 'Generated the following {} initial positions for each of the robot\'s joints:\n{}'\
-            .format(len(self._joint_positions), self._joint_positions)
-
-        self._apply_all_joint_positions(zip(JOINTS, self._joint_positions))
 
     # Scene Configuration Helper Functions ----------------------------------------------------------------
     def _load_scene_handles(self):
@@ -122,11 +123,21 @@ class Environment(PybrainEnvironment):
 
         return object_handles
 
-    def _generate_joint_positions(self):
-        return [2 * math.pi * random.random() for _ in JOINTS]
+    def _get_goal_distance_data(self):
+        # TODO
+        pass
+
+    def _get_proximity_sensor_distances(self):
+        # TODO
+        pass
+
+    def _generate_sensor_data_vector(self):
+        # TODO
+        pass
 
     def _apply_all_joint_positions(self, positions_to_apply):
         print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
+        # TODO pause communications
         for joint, position in positions_to_apply:
             object_handle = self._scene_handles[joint]
             code = vrep.simxSetJointPosition(self._client_id, object_handle, position, vrep.simx_opmode_blocking)
@@ -134,6 +145,7 @@ class Environment(PybrainEnvironment):
             if code != vrep.simx_return_ok:
                 raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
                     .format(code, joint, object_handle, position)
+        # TODO unpause communications
 
     # both these functions assume that streaming has been started and will fail if not
     def _read_all_sensors(self):
