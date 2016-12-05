@@ -25,35 +25,23 @@ class Environment(PybrainEnvironment):
 
         # set joint angles and start streaming
         self.reset()
-        time.sleep(2)
-        self.getSensors()
 
     def isColliding(self):
-        for collision in self._read_all_collisions():
-            # check if a collision occurs
-            return
+        for object_name, has_collision in self._read_all_collisions():
+            if has_collision:
+                print 'COLLISION! with object named [{}].'.format(object_name)
+                return True
         return False
 
     def getSensors(self):
-        # TODO Update joint positions? Should probably print something if these
-        # differ at all from the last action desired joint positions as if
-        # they don't we can just query once at the start and trust those
-        # TODO Convert proximity sensor data into distance and normal
-        # TODO Make sure that data returned from this is the same as used for
-        # calculating getReward at each step
-        streamed_sensor_data = []
-        for i in range(5):
-            for sensor in PROXIMITY_SENSORS:
-                sensor_handle = self._scene_handles[sensor]
-                code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
-                # create list of tuples of distance and normal for each sensor
-                # TODO use point to calculate distance
-                streamed_sensor_data.append((point, normal))
+        streamed_sensor_data = self._read_all_sensors()
 
         # update only if relevant; also, print; in either case, return the current state of the world
         if self._sensor_data != streamed_sensor_data:
             self._sensor_data = streamed_sensor_data
-            print 'Updated sensors {}'.format(self._sensor_data)
+            print 'Sensor data has changed to the following: {}'.format(self._sensor_data)
+
+        # TODO, convert this into a big fat vector
 
         return self._sensor_data
 
@@ -87,12 +75,13 @@ class Environment(PybrainEnvironment):
 
         vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_oneshot_wait)
 
+        print 'Beginning to stream all collisions.'
         # start streaming for all collision
         for collision in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision]
-            # TODO start streaming
+            code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)
 
-        # TODO start streaming for all proximity sensors
+        print 'Beginning to stream data for all proximity sensors.'
         for sensor in PROXIMITY_SENSORS:
             sensor_handle = self._scene_handles[sensor]
             code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)
@@ -103,7 +92,6 @@ class Environment(PybrainEnvironment):
         print 'Generated the following {} initial positions for each of the robot\'s joints:\n{}'\
             .format(len(self._joint_positions), self._joint_positions)
 
-        # apply joint positions
         self._apply_all_joint_positions(zip(JOINTS, self._joint_positions))
 
     # Scene Configuration Helper Functions ----------------------------------------------------------------
@@ -138,6 +126,7 @@ class Environment(PybrainEnvironment):
         return [2 * math.pi * random.random() for _ in JOINTS]
 
     def _apply_all_joint_positions(self, positions_to_apply):
+        print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
         for joint, position in positions_to_apply:
             object_handle = self._scene_handles[joint]
             code = vrep.simxSetJointPosition(self._client_id, object_handle, position, vrep.simx_opmode_blocking)
@@ -148,8 +137,23 @@ class Environment(PybrainEnvironment):
 
     # both these functions assume that streaming has been started and will fail if not
     def _read_all_sensors(self):
-        pass
+        streamed_sensor_data = []
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
+            # create list of tuples of distance and normal for each sensor
+            distance = self._distance_from_sensor_to_point(sensor, point)
+            streamed_sensor_data.append((distance, normal))
+        return streamed_sensor_data
 
 
     def _read_all_collisions(self):
-        pass
+        collisions = []
+        for collision_object_name in COLLISION_OBJECTS:
+            collision_handle = self._scene_handles[collision_object_name]
+            code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_buffer)
+        collisions.append((collision_object_name, state))
+
+    # Helper function -------------------------------------------------------------------------------------
+    def _distance_to_point(sensor_name, point):
+        return 1
