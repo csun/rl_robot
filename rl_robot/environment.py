@@ -70,14 +70,12 @@ class Environment(PybrainEnvironment):
         if scene_did_load != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
 
-        self._goal_point = [0, 0, 0]
+        self._goal_point = np.array([0, 0, 0])
         self._current_action_step = 0
         self._current_sensor_step = None
         # Tuple of joint handle and current position
         self._joint_positions = [(None, 0)] * len(JOINTS)
-        self._distance_from_goal = None
-        # TODO how do we represent this?
-        self._angle_to_goal = None
+        self._distance_vector_to_goal = np.array([0, 0, 0])
         self._proximity_sensor_distances = [sys.maxint] * len(PROXIMITY_SENSORS)
         self._is_colliding = False
         self._sensor_data_vector = None
@@ -184,8 +182,7 @@ class Environment(PybrainEnvironment):
         if code != vrep.simx_return_ok:
             raise SimulatorException('Failed to get tip position.')
         
-        difference = numpy.subtract(tip_position, self._goal_point)
-        np.linalg.norm
+        self._distance_vector_to_goal = np.subtract(tip_position, self._goal_point)
 
     def _get_proximity_sensor_distances(self):
         self._normals = []
@@ -198,9 +195,9 @@ class Environment(PybrainEnvironment):
                 self._normals.append(normal)
 
                 if state: # not detecting anything
-                    self._distances.append(self._distance_from_sensor_to_point(sensor, point))
+                    self._distances.append(np.linalg.norm(np.array(point)))
                 else:
-                    self._distances.append(self._distance_from_sensor_to_point(sensor, [float('inf')] * 3))
+                    self._distances.append(sys.maxint)
             else:
                 raise SimulatorException('Failed to stream from sensor [{}].'.format(sensor))
 
@@ -240,7 +237,3 @@ class Environment(PybrainEnvironment):
                 print 'COLLISION DETECTED WITH {}'.format(collision_object_name)
                 self._is_colliding = True
                 return
-
-    # Helper function -------------------------------------------------------------------------------------
-    def _distance_from_sensor_to_point(self, sensor_name, point):
-        return np.linalg.norm(np.array(point))
