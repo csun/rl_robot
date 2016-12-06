@@ -58,11 +58,8 @@ class Environment(PybrainEnvironment):
         # Increment joint positions by action and apply to the robot
         # TODO figure out how to specify how many deltas Learner can provide to env and max / min delta value
         # TODO figure out how to set joint limits as well
-        self._joint_positions = [jp + djp for jp, djp in zip(self._joint_positions, deltas)]
-        # TODO remove the self._joint_positions as an argument because it's redundant. We also need to decide
-        # what the actual format of _join_positions is because currently there's some dischord between how it's
-        # assigned here and the format that self._apply_all... assumes
-        self._apply_all_joint_positions(self._joint_positions)
+        self._joint_positions = [(jp[0], jp[1] + djp) for jp, djp in zip(self._joint_positions, deltas)]
+        self._apply_all_joint_positions()
         self._current_action_step += 1
 
     def reset(self):
@@ -79,7 +76,8 @@ class Environment(PybrainEnvironment):
 
         self._current_action_step = 0
         self._current_sensor_step = None
-        self._joint_positions = [0] * len(JOINTS)
+        # Tuple of joint handle and current position
+        self._joint_positions = [(None, 0)] * len(JOINTS)
         self._distance_from_goal = None
         # TODO how do we represent this?
         self._angle_to_goal = None
@@ -107,6 +105,9 @@ class Environment(PybrainEnvironment):
                 object_handles[obj_name] = handle
             else:
                 failed_handles.append(obj_name)
+
+        for index, joint in enumerate(JOINTS):
+            self._joint_positions[index][0] = object_handles[joint]
 
         # load collisions -- use the same map as for objects
         for coll_name in COLLISION_OBJECTS:
@@ -154,29 +155,18 @@ class Environment(PybrainEnvironment):
         # TODO
         pass
 
-    def _apply_all_joint_positions(self, positions_to_apply):
+    def _apply_all_joint_positions(self):
         print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
-        # TODO pause communications
-        for joint, position in positions_to_apply:
-            object_handle = self._scene_handles[joint]
-            code = vrep.simxSetJointPosition(self._client_id, object_handle, position, vrep.simx_opmode_blocking)
+        vrep.simxPauseCommunication(self._client_id, True)
+
+        for joint_handle, position in self._joint_positions:
+            code = vrep.simxSetJointPosition(self._client_id, joint_handle, position, vrep.simx_opmode_blocking)
 
             if code != vrep.simx_return_ok:
                 raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
                     .format(code, joint, object_handle, position)
-        # TODO unpause communications
 
-    # both these functions assume that streaming has been started and will fail if not
-    def _read_all_sensors(self):
-        streamed_sensor_data = []
-        for sensor in PROXIMITY_SENSORS:
-            sensor_handle = self._scene_handles[sensor]
-            code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
-            # create list of tuples of distance and normal for each sensor
-            distance = self._distance_from_sensor_to_point(sensor, point)
-            streamed_sensor_data.append((distance, normal))
-        return streamed_sensor_data
-
+        vrep.simxPauseCommunication(self._client_id, True)
 
     def _check_for_collisions(self):
         self._is_colliding = False
