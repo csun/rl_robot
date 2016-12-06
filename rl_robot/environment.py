@@ -6,7 +6,7 @@ import time
 import vrep
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
-from joint_constants import *
+from sim_constants import *
 
 
 class ConnectionException(Exception):
@@ -68,6 +68,10 @@ class Environment(PybrainEnvironment):
         if scene_did_load != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
 
+        # get collision handles, joint handles, etc.
+        self._scene_handles = self._load_scene_handles()
+
+        self._goal_point = [0, 0, 0]
         self._current_action_step = 0
         self._current_sensor_step = None
         # Tuple of joint handle and current position
@@ -174,8 +178,12 @@ class Environment(PybrainEnvironment):
 
 
     def _generate_goal_position(self):
-        # TODO remember to constrain this to places that make sense
-        pass
+        goal_area = random.choice(POTENTIAL_GOAL_AREAS)
+        lower_bound = goal_area[0]
+        ranges = goal_area[1]
+
+        for i in range(3):
+            self._goal_point[i] = lower_bound[i] + (random.random() * self.ranges[i])
 
     def _get_goal_distance_data(self):
         # TODO
