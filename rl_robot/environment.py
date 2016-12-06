@@ -6,16 +6,7 @@ import time
 import vrep
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
-from joint_constants import *
-
-
-# Note, this is tightly coupled with the currently used scene file. It's not ideal
-# to do this like this, but it'll work for now.
-POTENTIAL_GOAL_AREAS = [
-    [[-0.225, -1.525, 0.7], [0.6, -0.5, -0.1]],
-    [[-0.3, -1.25, 0.1], [0.275, -0.825, 0.425]],
-    [[0.325, -1.25, 0.1], [0.25, -0.825, 0.425]]
-]
+from sim_constants import *
 
 
 class ConnectionException(Exception):
