@@ -25,6 +25,7 @@ class Environment(PybrainEnvironment):
 
         # set joint angles and start streaming
         self.reset()
+        self.getSensors()
 
     def isColliding(self):
         for object_name, has_collision in self._read_all_collisions():
@@ -155,5 +156,8 @@ class Environment(PybrainEnvironment):
         collisions.append((collision_object_name, state))
 
     # Helper function -------------------------------------------------------------------------------------
-    def _distance_to_point(sensor_name, point):
+    def _distance_from_sensor_to_point(self, sensor_name, point):
+        # TODO make this function get the distance between the sensor with sensor_name and the point (x, y, z)
+        print 'Sensor Name {}'.format(sensor_name)
+        print 'Point {}'.format(point)
         return 1
