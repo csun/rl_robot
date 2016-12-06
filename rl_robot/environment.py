@@ -9,6 +9,15 @@ from pybrain.rl.environments.environment import Environment as PybrainEnvironmen
 from joint_constants import *
 
 
+# Note, this is tightly coupled with the currently used scene file. It's not ideal
+# to do this like this, but it'll work for now.
+POTENTIAL_GOAL_AREAS = [
+    [[-0.225, -1.525, 0.7], [0.6, -0.5, -0.1]],
+    [[-0.3, -1.25, 0.1], [0.275, -0.825, 0.425]],
+    [[0.325, -1.25, 0.1], [0.25, -0.825, 0.425]]
+]
+
+
 class ConnectionException(Exception):
     pass
 
@@ -74,6 +83,7 @@ class Environment(PybrainEnvironment):
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
 
+        self._goal_point = [0, 0, 0]
         self._current_action_step = 0
         self._current_sensor_step = None
         # Tuple of joint handle and current position
@@ -137,8 +147,12 @@ class Environment(PybrainEnvironment):
 
 
     def _generate_goal_position(self):
-        # TODO remember to constrain this to places that make sense
-        pass
+        goal_area = random.choice(POTENTIAL_GOAL_AREAS)
+        lower_bound = goal_area[0]
+        ranges = goal_area[1]
+
+        for i in range(3):
+            self._goal_point[i] = lower_bound[i] + (random.random() * self.ranges[i])
 
     def _get_goal_distance_data(self):
         # TODO
