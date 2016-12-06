@@ -3,6 +3,7 @@ import math
 import random
 import time
 
+import numpy as np
 import vrep
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
@@ -68,9 +69,6 @@ class Environment(PybrainEnvironment):
         if scene_did_load != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
 
-        # get collision handles, joint handles, etc.
-        self._scene_handles = self._load_scene_handles()
-
         self._goal_point = [0, 0, 0]
         self._current_action_step = 0
         self._current_sensor_step = None
@@ -83,13 +81,14 @@ class Environment(PybrainEnvironment):
         self._is_colliding = False
         self._sensor_data_vector = None
 
+        # get collision handles, joint handles, etc.
+        self._scene_handles = self._load_scene_handles()
+
         self._generate_goal_position()
 
         vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_blocking)
         time.sleep(0.1)
 
-        # get collision handles, joint handles, etc.
-        self._scene_handles = self._load_scene_handles()
         self._start_streaming()
 
         # sleep after streaming starts for data to roll in
@@ -98,6 +97,7 @@ class Environment(PybrainEnvironment):
         # We want to get sensors once so that things like _distance_from_goal are properly initialized
         self.getSensors()
 
+    # shut down environment gracefully to avoid problems with vrep
     def teardown(self):
         print 'Stopping data streaming for all collisions.'
         for collision in COLLISION_OBJECTS:
@@ -131,8 +131,6 @@ class Environment(PybrainEnvironment):
         object_handles = {}
         for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS:
             code, handle = vrep.simxGetObjectHandle(self._client_id, obj_name, vrep.simx_opmode_blocking)
-
-            print code
             if code == vrep.simx_return_ok:
                 object_handles[obj_name] = handle
             else:
@@ -140,9 +138,7 @@ class Environment(PybrainEnvironment):
         # load collisions -- use the same map as for objects
         print 'Loading all collisions...'
         for coll_name in COLLISION_OBJECTS:
-            print code
             code, handle = vrep.simxGetCollisionHandle(self._client_id, coll_name, vrep.simx_opmode_blocking)
-
             if code == vrep.simx_return_ok:
                 object_handles[coll_name] = handle
             else:
@@ -183,7 +179,7 @@ class Environment(PybrainEnvironment):
         ranges = goal_area[1]
 
         for i in range(3):
-            self._goal_point[i] = lower_bound[i] + (random.random() * self.ranges[i])
+            self._goal_point[i] = lower_bound[i] + (random.random() * ranges[i])
 
     def _get_goal_distance_data(self):
         # TODO
@@ -198,16 +194,26 @@ class Environment(PybrainEnvironment):
             code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
             if code == vrep.simx_return_ok:
                 self._normals.append(normal)
-                self._distance_from_sensor_to_point(sensor, point)
+
+                if state: # not detecting anything
+                    self._distances.append(self._distance_from_sensor_to_point(sensor, point))
+                else:
+                    self._distances.append(self._distance_from_sensor_to_point(sensor, [float('inf')] * 3))
             else:
                 raise SimulatorException('Failed to stream from sensor [{}].'.format(sensor))
+
+        if len(self._normals) != len(PROXIMITY_SENSORS) or len(self._distances) != len(PROXIMITY_SENSORS):
+            raise SimulatorException('Improper parity of data vector.')
 
         print 'Finished loading all normals and distances...'
 
 
     def _generate_sensor_data_vector(self):
-        # TODO
-        pass
+        # Check that all the inputs for the sensor data vector are of the expected size
+        if len(self._normals) != len(PROXIMITY_SENSORS) or len(self._distances) != len(PROXIMITY_SENSORS):
+            raise SimulatorException('Improper parity of data vector.')
+
+        return [1] * 100
 
     def _apply_all_joint_positions(self):
         print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
@@ -236,7 +242,4 @@ class Environment(PybrainEnvironment):
 
     # Helper function -------------------------------------------------------------------------------------
     def _distance_from_sensor_to_point(self, sensor_name, point):
-        # TODO make this function get the distance between the sensor with sensor_name and the point (x, y, z)
-        print 'Sensor Name :: {}'.format(sensor_name)
-        print 'Point :: {}'.format(point)
-        return 1
+        return np.linalg.norm(np.array(point))
