@@ -72,9 +72,6 @@ class Environment(PybrainEnvironment):
         self._current_action_step += 1
 
     def reset(self):
-        vrep.simxStopSimulation(self._client_id, vrep.simx_opmode_blocking)
-        time.sleep(0.1)
-
         # first load up the original scene
         scene_did_load = vrep.simxLoadScene(self._client_id, self._scene_file, 0, vrep.simx_opmode_blocking)
         if scene_did_load != vrep.simx_return_ok:
@@ -98,9 +95,40 @@ class Environment(PybrainEnvironment):
         self._generate_goal_position()
 
         vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_blocking)
+        time.sleep(0.1)
+
+        # get collision handles, joint handles, etc.
+        self._scene_handles = self._load_scene_handles()
         self._start_streaming()
+
+        # sleep after streaming starts for data to roll in
+        time.sleep(1)
+
         # We want to get sensors once so that things like _distance_from_goal are properly initialized
         self.getSensors()
+
+    def teardown(self):
+        print 'Stopping data streaming for all collisions.'
+        for collision in COLLISION_OBJECTS:
+            collision_handle = self._scene_handles[collision]
+            code = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_discontinue)[0]
+            if code != vrep.simx_return_ok:
+                raise Exception('Failed to stop streaming from a collision object.')
+
+        print 'Stopping data streaming for all proximity sensors.'
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_discontinue)[0]
+            if code != vrep.simx_return_ok:
+                raise Exception('Failed to stop streaming from a sensor.')
+
+        # pray that graceful shutdown actually happened
+        print 'Stopping simulation.'
+
+        vrep.simxStopSimulation(self._client_id, vrep.simx_opmode_blocking)
+        time.sleep(0.1)
+
+        return True
 
     # Scene Configuration Helper Functions ----------------------------------------------------------------
     def _load_scene_handles(self):
@@ -108,16 +136,20 @@ class Environment(PybrainEnvironment):
             raise SimulatorException('Failed to get handle for {}'.format(name))
 
         # load all objects
+        print 'Loading all objects...'
         object_handles = {}
         for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS:
             code, handle = vrep.simxGetObjectHandle(self._client_id, obj_name, vrep.simx_opmode_blocking)
 
+            print code
             if code == vrep.simx_return_ok:
                 object_handles[obj_name] = handle
             else:
                 handle_failure(obj_name)
         # load collisions -- use the same map as for objects
+        print 'Loading all collisions...'
         for coll_name in COLLISION_OBJECTS:
+            print code
             code, handle = vrep.simxGetCollisionHandle(self._client_id, coll_name, vrep.simx_opmode_blocking)
 
             if code == vrep.simx_return_ok:
@@ -126,7 +158,7 @@ class Environment(PybrainEnvironment):
                 handle_failure(coll_name)
 
         for index, joint in enumerate(JOINTS):
-            self._joint_positions[index][0] = object_handles[joint]
+            self._joint_positions[index] = (object_handles[joint], 0)
 
         return object_handles
 
@@ -135,14 +167,14 @@ class Environment(PybrainEnvironment):
         for collision in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision]
             code = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)[0]
-            if code != vrep.simx_return_ok:
+            if code != vrep.simx_return_novalue_flag:
                 raise SimulatorException('Failed to start streaming for collision object {}'.format(collision))
 
         print 'Beginning to stream data for all proximity sensors.'
         for sensor in PROXIMITY_SENSORS:
             sensor_handle = self._scene_handles[sensor]
             code = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)[0]
-            if code != vrep.simx_return_ok:
+            if code != vrep.simx_return_novalue_flag:
                 raise SimulatorException('Failed to start streaming for proximity sensor {}'.format(sensor))
 
 
@@ -159,8 +191,20 @@ class Environment(PybrainEnvironment):
         pass
 
     def _get_proximity_sensor_distances(self):
-        # TODO if no detection is occurring, just use sys.maxint
-        pass
+        self._normals = []
+        self._distances = []
+
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_buffer)
+            if code == vrep.simx_return_ok:
+                self._normals.append(normal)
+                self._distance_from_sensor_to_point(sensor, point)
+            else:
+                raise SimulatorException('Failed to stream from sensor [{}].'.format(sensor))
+
+        print 'Finished loading all normals and distances...'
+
 
     def _generate_sensor_data_vector(self):
         # TODO

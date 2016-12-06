@@ -27,6 +27,9 @@ def main():
         # environment.reset()
         # TODO use pickle to save model evey N iterations
 
+    # TODO ????
+    environment.teardown()
+
 
 if __name__ == '__main__':
     main()
