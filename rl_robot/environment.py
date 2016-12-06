@@ -3,6 +3,7 @@ import math
 import random
 import time
 
+import numpy
 import vrep
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
@@ -61,6 +62,7 @@ class Environment(PybrainEnvironment):
         self._joint_positions = [(jp[0], jp[1] + djp) for jp, djp in zip(self._joint_positions, deltas)]
         self._apply_all_joint_positions()
         self._current_action_step += 1
+        time.sleep(0.1)
 
     def reset(self):
         # first load up the original scene
@@ -129,7 +131,7 @@ class Environment(PybrainEnvironment):
         # load all objects
         print 'Loading all objects...'
         object_handles = {}
-        for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS:
+        for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS + [TIP_OBJECT]:
             code, handle = vrep.simxGetObjectHandle(self._client_id, obj_name, vrep.simx_opmode_blocking)
 
             print code
@@ -168,6 +170,10 @@ class Environment(PybrainEnvironment):
             if code != vrep.simx_return_novalue_flag:
                 raise SimulatorException('Failed to start streaming for proximity sensor {}'.format(sensor))
 
+        print 'Beginning to stream data for robot tip.'
+        code = vrep.simxGetObjectPosition(self._client_id, self._scene_handles[TIP_OBJECT], -1, vrep.simx_opmode_streaming)[0]
+        if code != vrep.simx_return_novalue_flag:
+            raise SimulatorException('Failed to start streaming for robot tip')
 
     def _generate_goal_position(self):
         goal_area = random.choice(POTENTIAL_GOAL_AREAS)
@@ -178,8 +184,13 @@ class Environment(PybrainEnvironment):
             self._goal_point[i] = lower_bound[i] + (random.random() * self.ranges[i])
 
     def _get_goal_distance_data(self):
-        # TODO
-        pass
+        code, tip_position = vrep.simxGetObjectPosition(self._client_id, self._scene_handles[TIP_OBJECT], -1, vrep.simx_opmode_buffer)
+
+        if code != vrep.simx_return_ok:
+            raise SimulatorException('Failed to get tip position.')
+        
+        difference = numpy.subtract(tip_position, self._goal_point)
+        np.linalg.norm
 
     def _get_proximity_sensor_distances(self):
         self._normals = []
@@ -195,7 +206,6 @@ class Environment(PybrainEnvironment):
                 raise SimulatorException('Failed to stream from sensor [{}].'.format(sensor))
 
         print 'Finished loading all normals and distances...'
-
 
     def _generate_sensor_data_vector(self):
         # TODO
