@@ -164,6 +164,14 @@ class Environment(PybrainEnvironment):
             if code != vrep.simx_return_novalue_flag:
                 raise SimulatorException('Failed to start streaming for proximity sensor {}'.format(sensor))
 
+        print 'Beginning to stream location for all proximity sensors.'
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code = vrep.simxGetObjectPosition(self._client_id, sensor_handle, -1, vrep.simx_opmode_streaming)[0]
+            if code != vrep.simx_return_novalue_flag:
+                raise SimulatorException('Failed to start streaming for proximity sensor {}'.format(sensor))
+
+
 
     def _generate_goal_position(self):
         # TODO remember to constrain this to places that make sense
@@ -221,6 +229,6 @@ class Environment(PybrainEnvironment):
     # Helper function -------------------------------------------------------------------------------------
     def _distance_from_sensor_to_point(self, sensor_name, point):
         # TODO make this function get the distance between the sensor with sensor_name and the point (x, y, z)
-        print 'Sensor Name {}'.format(sensor_name)
-        print 'Point {}'.format(point)
+        print 'Sensor Name :: {}'.format(sensor_name)
+        print 'Point :: {}'.format(point)
         return 1
