@@ -1,10 +1,13 @@
+import sys
 import math
-from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 import random
 import time
+
 import vrep
+from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
 from joint_constants import *
+
 
 class ConnectionException(Exception):
     pass
@@ -28,37 +31,39 @@ class Environment(PybrainEnvironment):
         self.getSensors()
 
     def isColliding(self):
-        for object_name, has_collision in self._read_all_collisions():
-            if has_collision:
-                print 'COLLISION! with object named [{}].'.format(object_name)
-                return True
-        return False
+        return self._is_colliding
+
+    def distanceFromGoal(self):
+        return self._distance_from_goal
 
     def getSensors(self):
-        streamed_sensor_data = self._read_all_sensors()
+        # If we haven't moved since the last sensor reading, our old sensor readings are still correct.
+        if self._current_sensor_step == self._current_action_step:
+            return self._sensor_data_vector
 
-        # update only if relevant; also, print; in either case, return the current state of the world
-        if self._sensor_data != streamed_sensor_data:
-            self._sensor_data = streamed_sensor_data
-            print 'Sensor data has changed to the following: {}'.format(self._sensor_data)
+        self._check_for_collisions()
+        self._get_goal_distance_data()
+        self._get_proximity_sensor_distances()
+        self._generate_sensor_data_vector()
 
-        # TODO, convert this into a big fat vector
+        self._current_sensor_step = self._current_action_step
 
-        return self._sensor_data
-
+        return self._sensor_data_vector
 
     def performAction(self, deltas):
         # just pass in a list of joint angle changes that matches the order in state (see: self._joint_positions)
         if len(deltas) != len(JOINTS):
             raise SimulatorException('Given deltas object length [{}] does not match num joints [{}]').format(len(deltas), len(JOINTS))
 
-        # pause communication
-
         # Increment joint positions by action and apply to the robot
+        # TODO figure out how to specify how many deltas Learner can provide to env and max / min delta value
+        # TODO figure out how to set joint limits as well
         self._joint_positions = [jp + djp for jp, djp in zip(self._joint_positions, deltas)]
+        # TODO remove the self._joint_positions as an argument because it's redundant. We also need to decide
+        # what the actual format of _join_positions is because currently there's some dischord between how it's
+        # assigned here and the format that self._apply_all... assumes
         self._apply_all_joint_positions(self._joint_positions)
-
-        # unpause
+        self._current_action_step += 1
 
     def reset(self):
         vrep.simxStopSimulation(self._client_id, vrep.simx_opmode_blocking)
@@ -72,28 +77,22 @@ class Environment(PybrainEnvironment):
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
 
-        self._sensor_data = None
+        self._current_action_step = 0
+        self._current_sensor_step = None
+        self._joint_positions = [0] * len(JOINTS)
+        self._distance_from_goal = None
+        # TODO how do we represent this?
+        self._angle_to_goal = None
+        self._proximity_sensor_distances = [sys.maxint] * len(PROXIMITY_SENSORS)
+        self._is_colliding = False
+        self._sensor_data_vector = None
 
-        vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_oneshot_wait)
+        self._generate_goal_position()
 
-        print 'Beginning to stream all collisions.'
-        # start streaming for all collision
-        for collision in COLLISION_OBJECTS:
-            collision_handle = self._scene_handles[collision]
-            code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)
-
-        print 'Beginning to stream data for all proximity sensors.'
-        for sensor in PROXIMITY_SENSORS:
-            sensor_handle = self._scene_handles[sensor]
-            code, state, point, handle, normal = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)
-
-        # generate random positions in environment for robot and goal - store all in env
-        self._joint_positions = self._generate_joint_positions()
-
-        print 'Generated the following {} initial positions for each of the robot\'s joints:\n{}'\
-            .format(len(self._joint_positions), self._joint_positions)
-
-        self._apply_all_joint_positions(zip(JOINTS, self._joint_positions))
+        vrep.simxStartSimulation(self._client_id, vrep.simx_opmode_blocking)
+        self._start_streaming()
+        # We want to get sensors once so that things like _distance_from_goal are properly initialized
+        self.getSensors()
 
     # Scene Configuration Helper Functions ----------------------------------------------------------------
     def _load_scene_handles(self):
@@ -123,11 +122,41 @@ class Environment(PybrainEnvironment):
 
         return object_handles
 
-    def _generate_joint_positions(self):
-        return [2 * math.pi * random.random() for _ in JOINTS]
+    def _start_streaming(self):
+        print 'Beginning to stream all collisions.'
+        for collision in COLLISION_OBJECTS:
+            collision_handle = self._scene_handles[collision]
+            code = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_streaming)[0]
+            if code != vrep.simx_return_ok:
+                print 'Failed to start streaming for collision object {}'.format(collision)
+
+        print 'Beginning to stream data for all proximity sensors.'
+        for sensor in PROXIMITY_SENSORS:
+            sensor_handle = self._scene_handles[sensor]
+            code = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_streaming)[0]
+            if code != vrep.simx_return_ok:
+                print 'Failed to start streaming for proximity sensor {}'.format(sensor)
+
+
+    def _generate_goal_position(self):
+        # TODO remember to constrain this to places that make sense
+        pass
+
+    def _get_goal_distance_data(self):
+        # TODO
+        pass
+
+    def _get_proximity_sensor_distances(self):
+        # TODO if no detection is occurring, just use sys.maxint
+        pass
+
+    def _generate_sensor_data_vector(self):
+        # TODO
+        pass
 
     def _apply_all_joint_positions(self, positions_to_apply):
         print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
+        # TODO pause communications
         for joint, position in positions_to_apply:
             object_handle = self._scene_handles[joint]
             code = vrep.simxSetJointPosition(self._client_id, object_handle, position, vrep.simx_opmode_blocking)
@@ -135,6 +164,7 @@ class Environment(PybrainEnvironment):
             if code != vrep.simx_return_ok:
                 raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
                     .format(code, joint, object_handle, position)
+        # TODO unpause communications
 
     # both these functions assume that streaming has been started and will fail if not
     def _read_all_sensors(self):
@@ -148,12 +178,17 @@ class Environment(PybrainEnvironment):
         return streamed_sensor_data
 
 
-    def _read_all_collisions(self):
-        collisions = []
+    def _check_for_collisions(self):
+        self._is_colliding = False
+
         for collision_object_name in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision_object_name]
             code, state = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_buffer)
-        collisions.append((collision_object_name, state))
+
+            if code == vrep.simx_return_ok and state:
+                print 'COLLISION DETECTED WITH {}'.format(collision_object_name)
+                self._is_colliding = True
+                return
 
     # Helper function -------------------------------------------------------------------------------------
     def _distance_from_sensor_to_point(self, sensor_name, point):
