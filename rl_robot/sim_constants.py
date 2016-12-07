@@ -15,3 +15,7 @@ POTENTIAL_GOAL_AREAS = [
     [[-0.3, -1.25, 0.1], [0.275, -0.825, 0.425]],
     [[0.325, -1.25, 0.1], [0.25, -0.825, 0.425]]
 ]
+
+# learning constants
+INDIM = len(JOINTS)
+OUTDIM = len(JOINTS) + len(PROXIMITY_SENSORS) + 3

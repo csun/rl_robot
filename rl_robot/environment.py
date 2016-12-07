@@ -7,6 +7,7 @@ import numpy as np
 import vrep
 from pybrain.rl.environments.environment import Environment as PybrainEnvironment
 
+from constants import *
 from sim_constants import *
 
 
@@ -19,12 +20,9 @@ class SimulatorException(Exception):
 
 
 class Environment(PybrainEnvironment):
-    
     # All joint positions
     # All proximity sensor distances
     # Distance to goal vector
-    outdim = len(JOINTS) + len(PROXIMITY_SENSORS) + 3
-    indim = len(JOINTS)
 
     def __init__(self, address, port, scene_file):
         self._scene_file = scene_file
@@ -84,7 +82,7 @@ class Environment(PybrainEnvironment):
         self._distance_vector_to_goal = np.array([0, 0, 0])
         self._proximity_sensor_distances = [sys.maxint] * len(PROXIMITY_SENSORS)
         self._is_colliding = False
-        self._sensor_data_vector = [0] * Environment.outdim
+        self._sensor_data_vector = [0] * OUTDIM
 
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
