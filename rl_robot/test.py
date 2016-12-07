@@ -1,9 +1,8 @@
 from environment import Environment
 import os
 
-LOCAL_HOST = '127.0.0.1'
-PATH_TO_SCENE = os.path.join(os.getcwd(), '../scene.ttt')
-PORT = 19997
+from constants import *
+from utils import _generate_unique_filename
 
 def main():
     # TODO create an environment object and start interfacing with it

@@ -181,8 +181,9 @@ class Environment(PybrainEnvironment):
 
         if code != vrep.simx_return_ok:
             raise SimulatorException('Failed to get tip position.')
-        
+
         self._distance_vector_to_goal = np.subtract(tip_position, self._goal_point)
+        self._distance_from_goal = np.linalg.norm(self._distance_vector_to_goal)
 
     def _get_proximity_sensor_distances(self):
         self._normals = []
