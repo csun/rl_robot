@@ -24,7 +24,7 @@ def main():
     # TODO Define better end condition for training loop
     for i in range(MAX_TRAINING_ITERATIONS):
         # TODO figure out how many steps of interaction to do
-        # experiment.doInteractions(...)
+        experiment.doInteractions()
         # agent.learn()
         # agent.reset()
         # environment.reset()
@@ -32,7 +32,7 @@ def main():
         pass
 
     # TODO ????
-    environment.teardown()
+    return environment.teardown()
 
 
 if __name__ == '__main__':
