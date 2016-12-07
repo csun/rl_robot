@@ -77,7 +77,7 @@ class Environment(PybrainEnvironment):
         if scene_did_load != vrep.simx_return_ok:
             raise SimulatorException('Could not load scene')
 
-        self._goal_point = np.array([0, 0, 0])
+        self._goal_point = np.array([0.0, 0.0, 0.0])
         self._current_action_step = 0
         self._current_sensor_step = None
         # Tuple of joint handle and current position
@@ -85,7 +85,7 @@ class Environment(PybrainEnvironment):
         self._distance_vector_to_goal = np.array([0, 0, 0])
         self._proximity_sensor_distances = [sys.maxint] * len(PROXIMITY_SENSORS)
         self._is_colliding = False
-        self._sensor_data_vector = [0] * OUTDIM
+        self._sensor_data_vector = [0] * Environment.outdim
 
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
@@ -135,7 +135,7 @@ class Environment(PybrainEnvironment):
         # load all objects
         print 'Loading all objects...'
         object_handles = {}
-        for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS + [TIP_OBJECT]:
+        for obj_name in LINKS + JOINTS + PROXIMITY_SENSORS + [TIP_OBJECT, GOAL_OBJECT]:
             code, handle = vrep.simxGetObjectHandle(self._client_id, obj_name, vrep.simx_opmode_blocking)
             if code == vrep.simx_return_ok:
                 object_handles[obj_name] = handle
@@ -182,6 +182,9 @@ class Environment(PybrainEnvironment):
 
         for i in range(3):
             self._goal_point[i] = lower_bound[i] + (random.random() * ranges[i])
+
+        vrep.simxSetObjectPosition(self._client_id, self._scene_handles[GOAL_OBJECT],
+                -1, self._goal_point, vrep.simx_opmode_blocking)
 
     def _get_goal_distance_data(self):
         code, tip_position = vrep.simxGetObjectPosition(self._client_id, self._scene_handles[TIP_OBJECT], -1, vrep.simx_opmode_buffer)

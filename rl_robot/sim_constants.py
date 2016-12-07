@@ -10,6 +10,8 @@ COLLISION_OBJECTS = map(lambda n: 'Collision' + str(n), range(5))
 
 TIP_OBJECT = 'redundantRob_tip'
 
+GOAL_OBJECT = 'goalIndicator'
+
 # Note, this is tightly coupled with the currently used scene file. It's not ideal
 # to do this like this, but it'll work for now.
 POTENTIAL_GOAL_AREAS = [
