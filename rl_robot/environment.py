@@ -19,6 +19,12 @@ class SimulatorException(Exception):
 
 
 class Environment(PybrainEnvironment):
+    
+    # All joint positions
+    # All proximity sensor distances
+    # Distance to goal vector
+    outdim = len(JOINTS) + len(PROXIMITY_SENSORS) + 3
+    indim = len(JOINTS)
 
     def __init__(self, address, port, scene_file):
         self._scene_file = scene_file
@@ -35,7 +41,7 @@ class Environment(PybrainEnvironment):
         return self._is_colliding
 
     def distanceFromGoal(self):
-        return self._distance_from_goal
+        return np.linalg.norm(np.array(self._distance_vector_to_goal))
 
     def getSensors(self):
         # If we haven't moved since the last sensor reading, our old sensor readings are still correct.
@@ -78,7 +84,7 @@ class Environment(PybrainEnvironment):
         self._distance_vector_to_goal = np.array([0, 0, 0])
         self._proximity_sensor_distances = [sys.maxint] * len(PROXIMITY_SENSORS)
         self._is_colliding = False
-        self._sensor_data_vector = None
+        self._sensor_data_vector = [0] * Environment.outdim
 
         # get collision handles, joint handles, etc.
         self._scene_handles = self._load_scene_handles()
@@ -186,7 +192,7 @@ class Environment(PybrainEnvironment):
 
     def _get_proximity_sensor_distances(self):
         self._normals = []
-        self._distances = []
+        self._proximity_sensor_distances = []
 
         for sensor in PROXIMITY_SENSORS:
             sensor_handle = self._scene_handles[sensor]
@@ -195,23 +201,30 @@ class Environment(PybrainEnvironment):
                 self._normals.append(normal)
 
                 if state: # not detecting anything
-                    self._distances.append(np.linalg.norm(np.array(point)))
+                    self._proximity_sensor_distances.append(np.linalg.norm(np.array(point)))
                 else:
-                    self._distances.append(sys.maxint)
+                    self._proximity_sensor_distances.append(sys.maxint)
             else:
                 raise SimulatorException('Failed to stream from sensor [{}].'.format(sensor))
 
-        if len(self._normals) != len(PROXIMITY_SENSORS) or len(self._distances) != len(PROXIMITY_SENSORS):
+        if len(self._normals) != len(PROXIMITY_SENSORS) or len(self._proximity_sensor_distances) != len(PROXIMITY_SENSORS):
             raise SimulatorException('Improper parity of data vector.')
 
         print 'Finished loading all normals and distances...'
 
     def _generate_sensor_data_vector(self):
-        # Check that all the inputs for the sensor data vector are of the expected size
-        if len(self._normals) != len(PROXIMITY_SENSORS) or len(self._distances) != len(PROXIMITY_SENSORS):
-            raise SimulatorException('Improper parity of data vector.')
+        data_vector_index = 0
 
-        return [1] * 100
+        def add_all(arr):
+            for element in arr:
+                self._sensor_data_vector[data_vector_index] = element
+                data_vector_index += 1
+
+        for _, position in self._joint_positions:
+            self._sensor_data_vector[data_vector_index] = position
+            data_vector_index += 1
+        add_all(self._proximity_sensor_distances)
+        add_all(self._distance_vector_to_goal)
 
     def _apply_all_joint_positions(self):
         print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
