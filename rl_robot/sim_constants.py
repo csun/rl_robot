@@ -2,6 +2,8 @@ LINKS = map(lambda n: 'redundantRob_link' + str(n), range(8))
 
 JOINTS = map(lambda n: 'redundantRob_joint' + str(n), range(1,8))
 
+ACTOR_LIMITS = [(-1.0, 1.0)] * len(JOINTS)
+
 PROXIMITY_SENSORS = map(lambda n: 'Proximity_sensor' + str(n), [''] + range(6))
 
 COLLISION_OBJECTS = map(lambda n: 'Collision' + str(n), range(5))
@@ -15,7 +17,3 @@ POTENTIAL_GOAL_AREAS = [
     [[-0.3, -1.25, 0.1], [0.275, -0.825, 0.425]],
     [[0.325, -1.25, 0.1], [0.25, -0.825, 0.425]]
 ]
-
-# learning constants
-INDIM = len(JOINTS)
-OUTDIM = len(JOINTS) + len(PROXIMITY_SENSORS) + 3

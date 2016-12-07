@@ -16,7 +16,7 @@ def main():
     task = Task(environment)
 
     # TODO figure out what to put for the params passed to ActionValueNetwork
-    controller = ActionValueNetwork(INDIM, OUTDIM)
+    controller = ActionValueNetwork(Environment.indim, Environment.outdim)
     agent = LearningAgent(controller, Q())
 
     experiment = Experiment(task, agent)

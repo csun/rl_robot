@@ -20,11 +20,16 @@ class SimulatorException(Exception):
 
 
 class Environment(PybrainEnvironment):
+
     # All joint positions
     # All proximity sensor distances
     # Distance to goal vector
+    outdim = len(JOINTS) + len(PROXIMITY_SENSORS) + 3
+    indim = len(JOINTS)
 
     def __init__(self, address, port, scene_file):
+        super(Environment, self).__init__()
+
         self._scene_file = scene_file
         self._client_id = vrep.simxStart(address, port, True, True, 5000, 5)
 
@@ -61,8 +66,6 @@ class Environment(PybrainEnvironment):
             raise SimulatorException('Given deltas object length [{}] does not match num joints [{}]').format(len(deltas), len(JOINTS))
 
         # Increment joint positions by action and apply to the robot
-        # TODO figure out how to specify how many deltas Learner can provide to env and max / min delta value
-        # TODO figure out how to set joint limits as well
         self._joint_positions = [(jp[0], jp[1] + djp) for jp, djp in zip(self._joint_positions, deltas)]
         self._apply_all_joint_positions()
         self._current_action_step += 1
@@ -214,16 +217,15 @@ class Environment(PybrainEnvironment):
     def _generate_sensor_data_vector(self):
         data_vector_index = 0
 
-        def add_all(arr):
-            for element in arr:
-                self._sensor_data_vector[data_vector_index] = element
-                data_vector_index += 1
-
         for _, position in self._joint_positions:
             self._sensor_data_vector[data_vector_index] = position
             data_vector_index += 1
-        add_all(self._proximity_sensor_distances)
-        add_all(self._distance_vector_to_goal)
+        for element in self._proximity_sensor_distances:
+            self._sensor_data_vector[data_vector_index] = element
+            data_vector_index += 1
+        for element in self._distance_vector_to_goal:
+            self._sensor_data_vector[data_vector_index] = element
+            data_vector_index += 1
 
     def _apply_all_joint_positions(self):
         print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
