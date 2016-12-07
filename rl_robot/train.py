@@ -21,15 +21,15 @@ def main():
 
     experiment = Experiment(task, agent)
 
-    # TODO Define better end condition for training loop
     for i in range(MAX_TRAINING_ITERATIONS):
-        # TODO figure out how many steps of interaction to do
         experiment.doInteractions()
         # agent.learn()
         # agent.reset()
         # environment.reset()
-        # TODO use pickle to save model evey N iterations
-        pass
+
+        # TODO check if iteration is mod something or other
+            # TODO if true, write to pickle
+            # TODO if not, check if the model params have converged if possible?
 
     # TODO ????
     return environment.teardown()
