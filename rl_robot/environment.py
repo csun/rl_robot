@@ -233,15 +233,9 @@ class Environment(PybrainEnvironment):
     def _apply_all_joint_positions(self):
         print 'Moving robot to new configuration: {}'.format(self._joint_positions)
         vrep.simxPauseCommunication(self._client_id, True)
-
         for joint_handle, position in self._joint_positions:
-            code = vrep.simxSetJointPosition(self._client_id, joint_handle, position, vrep.simx_opmode_blocking)
-
-            if code != vrep.simx_return_ok:
-                raise SimulatorException('[Code {}] Failed to move joint {} with handle {} to position {}.')\
-                    .format(code, joint, object_handle, position)
-
-        vrep.simxPauseCommunication(self._client_id, True)
+            vrep.simxSetJointPosition(self._client_id, joint_handle, position, vrep.simx_opmode_oneshot)
+        vrep.simxPauseCommunication(self._client_id, False)
 
     def _check_for_collisions(self):
         self._is_colliding = False

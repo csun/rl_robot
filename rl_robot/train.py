@@ -1,4 +1,6 @@
 import pickle
+import signal
+import sys
 
 from pybrain.rl.agents import LearningAgent
 from pybrain.rl.experiments import Experiment
@@ -12,7 +14,8 @@ from constants import *
 from environment import Environment
 from task import Task
 
-MAX_TRAINING_ITERATIONS = 10000
+
+TRAINING_ITERATIONS = 360
 
 
 # TODO ideally this would be in a different file and I'd understand what
@@ -36,11 +39,18 @@ def main():
 
     experiment = Experiment(task, agent)
 
-    for i in range(MAX_TRAINING_ITERATIONS):
-        experiment.doInteractions()
-        # agent.learn()
-        # agent.reset()
-        # environment.reset()
+    def signal_handler(signal, frame):
+        print 'Exiting gracefully'
+        environment.teardown()
+        # TODO also pickle here
+        sys.exit(0)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    while True:
+        experiment.doInteractions(TRAINING_ITERATIONS)
+        agent.learn()
+        agent.reset()
+        environment.reset()
 
         # TODO check if iteration is mod something or other
             # TODO if true, write to pickle
