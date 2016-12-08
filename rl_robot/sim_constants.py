@@ -5,7 +5,7 @@ JOINTS = map(lambda n: 'redundantRob_joint' + str(n), range(1,8))
 # NOTE one degree in radians
 ACTOR_LIMITS = [(-0.0175, 0.0175)] * len(JOINTS)
 
-PROXIMITY_SENSORS = map(lambda n: 'Proximity_sensor' + str(n), [''] + range(6))
+PROXIMITY_SENSORS = map(lambda n: 'Proximity_sensor' + str(n), [''] + range(6)) + ['Proximity_sensor']
 
 COLLISION_OBJECTS = map(lambda n: 'Collision' + str(n), range(5)) + ['Collision']
 

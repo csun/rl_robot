@@ -214,7 +214,7 @@ class Environment(PybrainEnvironment):
         if len(self._normals) != len(PROXIMITY_SENSORS) or len(self._proximity_sensor_distances) != len(PROXIMITY_SENSORS):
             raise SimulatorException('Improper parity of data vector.')
 
-        print 'Finished loading all normals and distances...'
+        # print 'Finished loading all normals and distances...'
 
     def _generate_sensor_data_vector(self):
         data_vector_index = 0
@@ -230,7 +230,7 @@ class Environment(PybrainEnvironment):
             data_vector_index += 1
 
     def _apply_all_joint_positions(self):
-        print 'Moving robot to new configuration: {}'.format(self._joint_positions)
+        # print 'Moving robot to new configuration: {}'.format(self._joint_positions)
         vrep.simxPauseCommunication(self._client_id, True)
         for joint_handle, position in self._joint_positions:
             vrep.simxSetJointPosition(self._client_id, joint_handle, position, vrep.simx_opmode_oneshot)
