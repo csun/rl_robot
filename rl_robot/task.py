@@ -4,10 +4,14 @@ from sim_constants import ACTOR_LIMITS
 
 class Task(EpisodicTask):
     EPISODE_MAX_STEPS = 300
-    COLLISION_REWARD = -10000
-    GOAL_REWARD = 10
+    COLLISION_MAX_REWARD = -5
+    COLLISION_MIN_REWARD = -10
+    GOAL_BASE_REWARD = 20
+    GOAL_REWARD_PER_STEP = 0.2
     GOAL_RADIUS = 0.05
-    DELTA_DISTANCE_REWARD_CONSTANT = 1
+    DELTA_DISTANCE_REWARD_BASE = 1.0
+    DELTA_DISTANCE_REWARD_CAP = 2.0
+    CONSECUTIVE_DIRECTIONAL_MULTIPLIER = 1.004
 
     def __init__(self, environment):
         super(Task, self).__init__(environment)
@@ -15,26 +19,36 @@ class Task(EpisodicTask):
 
     def reset(self):
         self.env.teardown()
+        print '!!Total reward from last run {}!!'.format(self.cumreward)
 
         super(Task, self).reset()
         self._should_finish = False
-        self._last_distance_from_goal = 9999.99
+        self._last_distance_from_goal = None
+        self._delta_distance_reward_multiplier = Task.DELTA_DISTANCE_REWARD_BASE
 
     def isFinished(self):
         return self._should_finish or (self.samples >= Task.EPISODE_MAX_STEPS)
 
     def getReward(self):
-        if self.env.isColliding():
-            self._should_finish = True
-            return Task.COLLISION_REWARD
-
-        total_reward = 0
         distance_from_goal = self.env.distanceFromGoal()
 
-        total_reward += ((self._last_distance_from_goal - distance_from_goal)
-                * Task.DELTA_DISTANCE_REWARD_CONSTANT)
-        if distance_from_goal <= Task.GOAL_RADIUS:
-            total_reward += Task.GOAL_REWARD * (Task.EPISODE_MAX_STEPS - self.samples)
-            self._should_finish = True
+        if self._last_distance_from_goal == None:
+            self._last_distance_from_goal = distance_from_goal
 
-        return total_reward
+        if self.env.isColliding():
+            self._should_finish = True
+            reward = distance_from_goal * Task.COLLISION_MAX_REWARD
+            return min(Task.COLLISION_MAX_REWARD, max(Task.COLLISION_MIN_REWARD, reward))
+        elif distance_from_goal <= Task.GOAL_RADIUS:
+            print 'REACHED GOAL'
+            self._should_finish = True
+            return Task.GOAL_BASE_REWARD + (Task.GOAL_REWARD_PER_STEP * (Task.EPISODE_MAX_STEPS - self.samples))
+        elif (self._last_distance_from_goal < 0) == (distance_from_goal < 0):
+            self._delta_distance_reward_multiplier *= Task.CONSECUTIVE_DIRECTIONAL_MULTIPLIER
+            self._delta_distance_reward_multiplier = max(self._delta_distance_reward_multiplier, Task.DELTA_DISTANCE_REWARD_CAP)
+        else:
+            self._delta_distance_reward_multiplier = Task.DELTA_DISTANCE_REWARD_BASE
+
+        reward = (self._last_distance_from_goal - distance_from_goal) * self._delta_distance_reward_multiplier
+        self._last_distance_from_goal = distance_from_goal
+        return reward
