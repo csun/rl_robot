@@ -108,16 +108,15 @@ class Environment(PybrainEnvironment):
         print 'Stopping data streaming for all collisions.'
         for collision in COLLISION_OBJECTS:
             collision_handle = self._scene_handles[collision]
-            code = vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_discontinue)[0]
-            if code != vrep.simx_return_ok:
-                raise Exception('Failed to stop streaming from a collision object.')
+            vrep.simxReadCollision(self._client_id, collision_handle, vrep.simx_opmode_discontinue)
 
         print 'Stopping data streaming for all proximity sensors.'
         for sensor in PROXIMITY_SENSORS:
             sensor_handle = self._scene_handles[sensor]
-            code = vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_discontinue)[0]
-            if code != vrep.simx_return_ok:
-                raise Exception('Failed to stop streaming from a sensor.')
+            vrep.simxReadProximitySensor(self._client_id, sensor_handle, vrep.simx_opmode_discontinue)
+
+        print 'Stopping data streaming for robot tip.'
+        code = vrep.simxGetObjectPosition(self._client_id, self._scene_handles[TIP_OBJECT], -1, vrep.simx_opmode_discontinue)
 
         # pray that graceful shutdown actually happened
         print 'Stopping simulation.'

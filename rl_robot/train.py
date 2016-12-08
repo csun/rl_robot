@@ -1,21 +1,26 @@
 import pickle
 import signal
 import sys
+import time
 
 from pybrain.rl.agents import LearningAgent
-from pybrain.rl.experiments import Experiment
-from pybrain.rl.learners import Q
+from pybrain.rl.experiments import EpisodicExperiment
+from pybrain.rl.agents.linearfa import LinearFA_Agent
+from pybrain.rl.learners.valuebased.nfq import NFQ
+from pybrain.rl.learners.valuebased.linearfa import Q_LinFA
 from pybrain.rl.learners.valuebased import ActionValueNetwork
 from pybrain.rl.explorers.continuous import NormalExplorer
 from pybrain.structure.modules import Module
 from pybrain.tools.shortcuts import buildNetwork
+from pybrain.rl.agents import OptimizationAgent
+from pybrain.optimization import PGPE
 
 from constants import *
 from environment import Environment
 from task import Task
 
 
-TRAINING_ITERATIONS = 360
+TRAINING_ITERATIONS = 10
 
 
 # TODO ideally this would be in a different file and I'd understand what
@@ -31,13 +36,18 @@ def main():
     environment = Environment(LOCAL_HOST, PORT, PATH_TO_SCENE)
     task = Task(environment)
 
-    controller = Controller(Environment.outdim, Environment.indim)
-    learner = Q()
-    learner.explorer = NormalExplorer(Environment.indim)
+    # controller = Controller(Environment.outdim, Environment.indim)
+    # controller = ActionValueNetwork(Environment.outdim, Environment.indim)
+    # learner = Q_LinFA(Environment.indim, Environment.outdim)
+    # learner = NFQ()
+    # learner.explorer = NormalExplorer(Environment.indim)
 
-    agent = LearningAgent(controller, learner)
+    # agent = LearningAgent(controller, learner)
+    # agent = LinearFA_Agent(learner)
+    net = buildNetwork(Environment.outdim, Environment.indim)
+    agent = OptimizationAgent(net, PGPE())
 
-    experiment = Experiment(task, agent)
+    experiment = EpisodicExperiment(task, agent)
 
     def signal_handler(signal, frame):
         print 'Exiting gracefully'
@@ -47,17 +57,17 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     while True:
-        experiment.doInteractions(TRAINING_ITERATIONS)
-        agent.learn()
-        agent.reset()
-        environment.reset()
+        time.sleep(1)
+        print 'NEW ITERATION'
+        experiment.doEpisodes(Task.EPISODE_MAX_STEPS)
+        # experiment.doInteractions(TRAINING_ITERATIONS)
+        # agent.learn()
+        # agent.reset()
+        # environment.reset()
 
         # TODO check if iteration is mod something or other
             # TODO if true, write to pickle
             # TODO if not, check if the model params have converged if possible?
-
-    # TODO ????
-    return environment.teardown()
 
 
 if __name__ == '__main__':
