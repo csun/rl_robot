@@ -231,7 +231,7 @@ class Environment(PybrainEnvironment):
             data_vector_index += 1
 
     def _apply_all_joint_positions(self):
-        print 'Moving robot to new configuration: {}'.format(map(lambda x: x[1], positions_to_apply))
+        print 'Moving robot to new configuration: {}'.format(self._joint_positions)
         vrep.simxPauseCommunication(self._client_id, True)
 
         for joint_handle, position in self._joint_positions:
