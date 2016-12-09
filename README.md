@@ -1,23 +1,27 @@
 # Reinforcement Learning Robot
-The goal of this project is to create a program which learns to control a robot through an environment with only limited information about the state of the robot's vicinity. In order to accomplish the goal, we utilize reinforcement learning. 
+The goal of this project is to create a program which uses reinforcement learning to control a robot. The robot is tasked with reaching a randomized goal point in a static environment. The environment is cluttered with obstacles, and the robot is penalized for any collisions that it causes by moving through the environment.
 
-In this README, we provide a bit of background about our robot and an overview of the results we observed. 
+## Setup and Operation
+1) Install [pybrain](http://pybrain.org/docs/)
+2) Install [v-rep](http://www.coppeliarobotics.com/downloads.html)
+3) Depending on your os, you may need to follow [these instructions](http://www.coppeliarobotics.com/helpFiles/en/remoteApiClientSide.htm) to get python talking to vrep.
 
-## Reinforcement Learning
-// TODO describe reinforcement learning
+Once all of this is installed, [start v-rep](http://www.coppeliarobotics.com/helpFiles/en/commandLine.htm). Then, run `python rl_robot/train.py <SOME_DIRECTORY>`. This will start training of a model, which should be visible in your v-rep instance. This will also auto-save the trained models every couple iterations. _However, it appears that reloading saved models does not currently do anything._ This needs to be fixed.
 
-## The Robot
-// TODO describe robot here
+## The Simulation
+V-rep is used to simulate both the robot and its environment in this simulation. V-rep has capabilities to simulate dynamics, but we've opted to turn this off to reduce inconsistencies caused by latency.
 
-## Technology
-* VREP - a is a versatile robotic simulation software. Components of a VREP simulation, e.g. joint, camera, etc., can be controlled (among other things) through a remote API via HTTP reqeuests.
-* PyBrain - a Python library which provides a swath of machine learning algorithms. In particular, [PyBrain provides a framework for reinforcement learning](http://pybrain.org/docs/tutorial/reinforcement-learning.html) which we used to develop a program that learns how to control our robot. The program interfaces with VREP via VREP's remote API.
+We set up a generic 7DoF robotic arm and placed it in a scene with a table, chair, and two items on top of the table. Goal positions are randomly generated at the start of each simulation in specific areas that require the robot to avoid these obstacles (eg. under the table, behind the objects on the table, etc.).
+
+To give the robot information about its surroundings, we've attached 11 proximity sensors to it at varying points on its body. These are displayed in v-rep as red "laser beams" which flash yellow when they are detecting a nearby object.
 
 ## Methods
 // TODO describe methods
+go into detail about how we represent state for RL, what we reward / punish, what pybrain classes we use (state that we don't really understand this), etc. @csun can talk about this
 
 ## Results
 // TODO describe results
+Say that robot learns how to avoid stuff using prox sensors pretty quickly, after couple hundred iterations gets pretty good about only going toward goal. Also that we need more sensors and when hits things it's because not in sensor
 
 ## Note
 This project was built for Professor Robert Platt's Robotics Systems class at Northeastern University.
