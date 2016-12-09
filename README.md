@@ -4,9 +4,9 @@ The goal of this project is to create a program which uses reinforcement learnin
 This project was built for Professor Robert Platt's Robotics Systems class at Northeastern University.
 
 ## Setup and Operation
-1) Install [pybrain](http://pybrain.org/docs/)
-2) Install [v-rep](http://www.coppeliarobotics.com/downloads.html)
-3) Depending on your os, you may need to follow [these instructions](http://www.coppeliarobotics.com/helpFiles/en/remoteApiClientSide.htm) to get python talking to vrep.
+	1) Install [pybrain](http://pybrain.org/docs/)
+	2) Install [v-rep](http://www.coppeliarobotics.com/downloads.html)
+	3) Depending on your os, you may need to follow [these instructions](http://www.coppeliarobotics.com/helpFiles/en/remoteApiClientSide.htm) to get python talking to vrep.
 
 Once all of this is installed, [start v-rep](http://www.coppeliarobotics.com/helpFiles/en/commandLine.htm). Then, run `python rl_robot/train.py <SOME_DIRECTORY>`. This will start training of a model, which should be visible in your v-rep instance. This will also auto-save the trained models every couple iterations. _However, it appears that reloading saved models does not currently do anything._ This needs to be fixed.
 
